@@ -43,7 +43,7 @@ namespace MCR.Horror
         public Player Player=>gm.player;
         public void Save()
         {
-            foreach(var e in World.entities) if(e is HorrorMob m && m.kind=="unseam" && !m.preview && !m.removed && !m.dead)
+            foreach(var e in World.entities) if(e is HorrorMob m && m.kind=="unseam" && m.campaignBoss && !m.removed && !m.dead)
             {state.boss.active=true;state.boss.position=m.position;state.boss.dimension=(int)World.dim;state.boss.health=m.health;state.boss.final=m.final;}
             HorrorSave.Write(gm.session.save.dir,state);
         }
@@ -243,7 +243,9 @@ namespace MCR.Horror
                     if(!CanStand(World,p,d.width,d.height) || IsProtected(p)) continue;
                     if(!preview && Vector3.Dot(Player.LookDir,(p-Player.EyePosition).normalized)>0.55f && Sight(World,Player.EyePosition,p+Vector3.up)) continue;
                     mob=MobRegistry.Spawn(World,d.id,p,SpawnReason.Summon) as HorrorMob;
-                    mob.preview=preview;mob.home=p;
+                    mob.preview=preview;
+                    mob.campaignBoss=kind=="unseam" && !preview;
+                    mob.home=p;
                     if(kind=="unseam" && !preview) {state.boss.active=true;state.boss.position=p;state.boss.health=mob.health;state.boss.dimension=(int)World.dim;}
                     return true;
                 }
@@ -257,7 +259,7 @@ namespace MCR.Horror
             var b=state.boss;
             if((b.position-Player.position).sqrMagnitude<100 || !CanStand(World,b.position,3.2f,5.6f)) return;
             var m2=MobRegistry.Spawn(World,"horror:unseam",b.position,SpawnReason.Summon) as HorrorMob;
-            m2.final=b.final;m2.health=b.health;m2.home=b.position;m2.state=HuntState.Search;
+            m2.final=b.final;m2.campaignBoss=true;m2.health=b.health;m2.home=b.position;m2.state=HuntState.Search;
             Log("restored one campaign identity");
         }
         public static string SiteName(string kind)
@@ -364,13 +366,13 @@ namespace MCR.Horror
             float checkpointHealth=!preview && state.boss.active && state.boss.final?state.boss.health:120;
             Vector3 spawn=s.position+new Vector3(0,0,10);
             if(!CanStand(World,spawn,3.2f,5.6f)) {if(!TrySpawn("unseam",preview,out var alt)) {gm.hud.Chat("Clear an open approach around the Bell and try again.");return false;}alt.final=true;alt.home=s.position;spawn=alt.position;}
-            else {var boss=MobRegistry.Spawn(World,"horror:unseam",spawn,SpawnReason.Summon) as HorrorMob;boss.preview=preview;boss.final=true;boss.home=s.position;}
+            else {var boss=MobRegistry.Spawn(World,"horror:unseam",spawn,SpawnReason.Summon) as HorrorMob;boss.preview=preview;boss.campaignBoss=!preview;boss.final=true;boss.home=s.position;}
             if(!preview) {foreach(var actor in Active())if(actor.kind=="unseam" && actor.final && !actor.preview)actor.health=checkpointHealth;state.boss.active=true;state.boss.final=true;state.boss.position=spawn;state.boss.dimension=(int)World.dim;state.boss.health=checkpointHealth;state.recoveryUntil=state.clock+160;state.RaiseAttention(20,"opened the Bell");Save();}
             gm.hud.SetTitle("THE UNSEAM","Lure its strike. Reveal the shutters. Bind, then attack.");return true;
         }
         public void Victory(HorrorMob boss)
         {
-            if(boss.preview || Player.IsCreative || state.defeated || !boss.final) {gm.hud.Chat("Preview death: campaign and rewards unchanged.");return;}
+            if(boss.preview || Player.IsCreative || !boss.campaignBoss || state.defeated || !boss.final) {gm.hud.Chat("Preview death: campaign and rewards unchanged.");return;}
             state.defeated=true;state.boss.active=false;state.attention=0;state.Recover(3600);
             foreach(var s in state.sites) s.suppressed=true;
             state.rewardGranted=true;

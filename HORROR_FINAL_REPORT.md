@@ -29,3 +29,7 @@
 ## Запуск
 
 Для новичков используйте PUBLIC_BEGINNER_GUIDE.md. Быстрый запуск: PLAY-HORROR.bat на Windows или PLAY-HORROR-Mac.command на macOS. Полный игровой маршрут и рецепты находятся в HORROR_PLAY_GUIDE.md.
+
+## Survival spawn egg update
+
+All 7 horror eggs were verified in a fresh Survival player build. Each successful use creates a real saved actor and consumes exactly one egg. A Survival Unseam egg creates a separate combat encounter and cannot complete the campaign or grant Quiet Heart.

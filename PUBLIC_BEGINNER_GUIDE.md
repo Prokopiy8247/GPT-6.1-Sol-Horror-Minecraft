@@ -34,3 +34,7 @@
 - Окно долго загружает проект: первый импорт ассетов Unity может занять несколько минут.
 - macOS не открывает `.command`: используйте правую кнопку → **Открыть**, а не обычный двойной щелчок.
 - Windows блокирует неизвестный launcher: скачивайте файлы только со страницы этого репозитория и выберите **Подробнее → Выполнить в любом случае**, если доверяете источнику.
+
+## Survival eggs
+
+In Survival, use a horror: egg on a clear floor with enough space above it. One egg is consumed per successful spawn. The creature is real, can attack, and is saved with the world. Creative eggs are safe previews without damage or campaign rewards.

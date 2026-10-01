@@ -46,3 +46,7 @@
 Скрипты сборки находятся в `Tools/`. Для работы с Blender-ассетами используется исходный `UnityMinecraft.blend`; для обычного запуска Blender не требуется.
 
 Исходники распространяются для ознакомления и самостоятельной сборки. Unity Editor, лицензия Unity и системные зависимости устанавливаются пользователем отдельно с официального сайта Unity.
+
+## Survival spawn eggs
+
+Use any horror: spawn egg on a clear floor in Survival. One egg is consumed per successful spawn; the creature uses real AI and persists in the world. Creative eggs remain safe previews and do not grant campaign rewards.

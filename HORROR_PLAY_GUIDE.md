@@ -95,3 +95,9 @@ Pause/Resume director, Stop/reset. Смена режима на Survival уда�
 
 Необязательное искажение восприятия не реализовано. Модели используют анимацию отдельных частей.
 Архитектура источников имеет собственные ограниченные коллизии и не добавляет новые воксельные блоки.
+
+## Survival spawn eggs
+
+The seven horror: spawn eggs work in Survival and Adventure as well as Creative. In Survival, use an egg on a clear floor with enough headroom; one egg is consumed for each successful spawn. The spawned creature uses its real movement and attack AI and is saved with the world.
+
+Creative remains a safe preview: Creative eggs do not consume items, damage the player, grant rewards, or advance the campaign. An Unseam spawned from a Survival egg is a combat encounter and can never become the campaign boss or grant the campaign Quiet Heart reward. The campaign boss still comes only from the Open Bell route.

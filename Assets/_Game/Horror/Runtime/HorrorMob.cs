@@ -7,7 +7,7 @@ namespace MCR.Horror
     public sealed class HorrorMob : Mob
     {
         public readonly string kind;
-        public bool preview, final;
+        public bool preview, final, campaignBoss;
         public HuntState state=HuntState.Observe;
         public Vector3 home, evidencePosition, attackPoint;
         public bool hasEvidence;
@@ -18,7 +18,10 @@ namespace MCR.Horror
         HorrorVisual horrorVisual;
         int replan;
         public HorrorMob(string kind) {this.kind=kind;}
-        public override bool ShouldSave=>false; // One campaign boss checkpoint/memory lives in the sidecar.
+        // Creative previews are disposable. Survival eggs are real world entities and
+        // must survive chunk/world saves; the campaign Unseam remains represented by
+        // its sidecar checkpoint so it cannot be duplicated by entity persistence.
+        public override bool ShouldSave=>!removed && !preview && !campaignBoss;
         public override bool CanDespawn=>false;
         public override string AmbientSound=>null;
         public override string HurtSound=>null;
@@ -27,6 +30,7 @@ namespace MCR.Horror
         {
             home=position;preview=reason==SpawnReason.SpawnEgg || reason==SpawnReason.Command;
             if(preview) final=kind=="unseam";
+            campaignBoss=false;
             persistent=true;
         }
         public override void CreateVisual()
@@ -41,7 +45,7 @@ namespace MCR.Horror
             evidencePosition=pos;hasEvidence=true;evidenceTicks=source=="lure"?400:160;lostTicks=0;
             if(source=="lure") {lureTicks=300;state=HuntState.Investigate;h.Learn("sound",true);}
             else if(state!=HuntState.Pursue && attackTicks<=0) state=HuntState.Investigate;
-            if(kind=="unseam" && !preview) h.state.Remember(source=="lure"?EvidenceSource.Lure:EvidenceSource.Sound,pos,(int)world.dim,source=="lure"?1:0.75f);
+            if(kind=="unseam" && campaignBoss) h.state.Remember(source=="lure"?EvidenceSource.Lure:EvidenceSource.Sound,pos,(int)world.dim,source=="lure"?1:0.75f);
         }
         protected override void OnHurtBy(LivingEntity attacker)
         {
@@ -54,7 +58,7 @@ namespace MCR.Horror
             if(h==null || !h.state.enabled || preview && !h.Player.IsCreative) {Remove();return;}
             var p=h.Player;
             if(dead) return;
-            if(!preview && !final && age>2400){if(kind=="unseam")h.state.boss.active=false;h.state.Recover(900);Remove();return;}
+            if(!preview && !final && age>2400){if(kind=="unseam" && campaignBoss)h.state.boss.active=false;h.state.Recover(900);Remove();return;}
             if(kind=="briarchoir" && (p.position-home).sqrMagnitude>196){hasEvidence=false;evidenceTicks=0;attackTicks=0;state=HuntState.Retreat;nav.Stop();base.AiStep();return;}
             if(p.world!=world || p.dead) {nav.Stop();base.AiStep();return;}
             if(revealTicks>0) revealTicks--;if(bindTicks>0) bindTicks--;if(lureTicks>0) lureTicks--;
@@ -81,7 +85,7 @@ namespace MCR.Horror
             {
                 evidencePosition=p.position;hasEvidence=true;evidenceTicks=120;lostTicks=0;
                 state=kind=="unseam" && !final && age<160?HuntState.Stalk:HuntState.Pursue;
-                if(kind=="unseam" && !preview)
+                if(kind=="unseam" && campaignBoss)
                 {
                     h.state.Remember(EvidenceSource.Sight,p.position,(int)world.dim);
                     if(h.refugeValid) h.state.Remember(EvidenceSource.ObservedShelter,p.position,(int)world.dim,0.7f);
@@ -89,7 +93,7 @@ namespace MCR.Horror
                 }
             }
             else if(!canSee) lostTicks++;
-            if(kind=="unseam" && !preview && !hasEvidence)
+            if(kind=="unseam" && campaignBoss && !hasEvidence)
             {
                 var e=h.state.BestEvidence((int)world.dim);
                 if(e!=null) {evidencePosition=e.position;hasEvidence=true;evidenceTicks=80;state=HuntState.Search;}
@@ -119,17 +123,17 @@ namespace MCR.Horror
                 {
                     state=HuntState.Search;nav.Stop();
                     if(++searchTicks>100) {hasEvidence=false;evidenceTicks=0;searchTicks=0;state=HuntState.Retreat;
-                        if(kind=="unseam" && !preview) {h.state.Remember(EvidenceSource.FailedSearch,position,(int)world.dim,0.2f);h.state.memory.RemoveAll(e=>e.source!=EvidenceSource.FailedSearch);h.state.Recover();h.state.boss.active=false;}
+                        if(kind=="unseam" && campaignBoss) {h.state.Remember(EvidenceSource.FailedSearch,position,(int)world.dim,0.2f);h.state.memory.RemoveAll(e=>e.source!=EvidenceSource.FailedSearch);h.state.Recover();h.state.boss.active=false;}
                         h.Log(kind+" unsuccessful search; disengage");}
                 }
             }
             else
             {
                 nav.Stop();state=HuntState.Observe;
-                if(age>1200 && !final && !preview) {if(kind=="unseam"){h.state.boss.active=false;h.state.Recover();}Remove();return;}
+                if(age>1200 && !final && !preview) {if(kind=="unseam" && campaignBoss){h.state.boss.active=false;h.state.Recover();}Remove();return;}
             }
             posture=Mathf.MoveTowards(posture,state==HuntState.Pursue?1:0,0.06f);
-            if(kind=="unseam" && !preview && h.state.boss.active && age%20==0){h.state.boss.position=position;h.state.boss.health=health;h.state.boss.final=final;h.state.boss.dimension=(int)world.dim;}
+            if(kind=="unseam" && campaignBoss && h.state.boss.active && age%20==0){h.state.boss.position=position;h.state.boss.health=health;h.state.boss.final=final;h.state.boss.dimension=(int)world.dim;}
             // Conservative collider includes the unfolding head and swinging arms in every state.
             base.AiStep();
         }
@@ -204,16 +208,45 @@ namespace MCR.Horror
                 return false;
             }
             bool result=base.Hurt(src,amount);
-            if(result) {HorrorAudio.Play("hurt",position,0.35f);if(kind=="unseam" && !preview){h.state.boss.health=health;h.state.boss.position=position;}}
+            if(result) {HorrorAudio.Play("hurt",position,0.35f);if(kind=="unseam" && campaignBoss){h.state.boss.health=health;h.state.boss.position=position;}}
             return result;
         }
         protected override void OnDeath(DamageSource src)
         {
             state=HuntState.Dead;nav.Stop();HorrorAudio.Play("settle",position,0.6f);
             var h=HorrorRuntime.Current;
-            if(kind=="unseam") {h?.Victory(this);return;}
+            if(kind=="unseam")
+            {
+                if(campaignBoss) {h?.Victory(this);return;}
+                if(!preview && src.attacker is Player unseamKiller && !unseamKiller.IsCreative)
+                {
+                    unseamKiller.inventory.AddOrDrop(new ItemStack("horror:resonant_splinter",2));
+                    XpOrb.Spawn(world,position,def.xp);
+                    h?.state.Recover(900);
+                }
+                return;
+            }
             if(!preview && src.attacker is Player p && !p.IsCreative)
             {p.inventory.AddOrDrop(new ItemStack("horror:resonant_splinter",1));XpOrb.Spawn(world,position,5);h?.state.Recover(900);}
+        }
+
+        public override void Save(Dictionary<string,string> d)
+        {
+            base.Save(d);
+            if(final) d["horror_final"]="1";
+            d["horror_home_x"]=home.x.ToString("R");
+            d["horror_home_y"]=home.y.ToString("R");
+            d["horror_home_z"]=home.z.ToString("R");
+        }
+
+        public override void Load(Dictionary<string,string> d)
+        {
+            base.Load(d);
+            final=d.TryGetValue("horror_final",out var f) && f=="1";
+            if(d.TryGetValue("horror_home_x",out var x) && float.TryParse(x,out var hx) &&
+               d.TryGetValue("horror_home_y",out var y) && float.TryParse(y,out var hy) &&
+               d.TryGetValue("horror_home_z",out var z) && float.TryParse(z,out var hz))
+                home=new Vector3(hx,hy,hz);
         }
     }
 }

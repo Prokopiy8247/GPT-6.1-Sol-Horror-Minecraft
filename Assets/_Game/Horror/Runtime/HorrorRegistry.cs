@@ -60,14 +60,19 @@ namespace MCR.Horror
         public HorrorEgg(string kind):base("horror:"+kind) {this.kind=kind;}
         public override UseResult UseOn(ref UseOnContext ctx)
         {
-            if(!ctx.player.IsCreative) {GameManager.Instance?.hud.Chat("Horror spawn eggs are Creative previews.");return UseResult.Fail;}
             var p=ctx.Adjacent.Center-Vector3.up*0.5f;
             var d=MobRegistry.Get(mobId);
             if(!HorrorRuntime.CanStand(ctx.world,p,d.width,d.height))
             {GameManager.Instance?.hud.Chat("No clear loaded space. The Unseam needs a wide, tall opening.");return UseResult.Fail;}
             var mob=MobRegistry.Spawn(ctx.world,mobId,p,SpawnReason.SpawnEgg) as HorrorMob;
             if(mob==null) return UseResult.Fail;
-            mob.preview=true;mob.final=kind=="unseam";
+            // Creative remains a safe presentation mode. Survival and Adventure create
+            // ordinary persistent horror actors with their real AI and attack rules.
+            mob.preview=ctx.player.IsCreative;
+            mob.final=kind=="unseam";
+            mob.campaignBoss=false;
+            if(!ctx.player.IsCreative) ctx.stack.count--;
+            ctx.player.SwingArm();
             return UseResult.Success;
         }
         public override UseResult Use(World w,Player p,ItemStack s)=>UseResult.Pass;

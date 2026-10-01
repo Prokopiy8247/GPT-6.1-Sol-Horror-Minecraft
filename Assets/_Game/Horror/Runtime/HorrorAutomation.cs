@@ -24,7 +24,7 @@ namespace MCR.Horror
             if(task=="search"){CreativeScreen.LastTab=0;CreativeScreen.LastSearch="horror:";gm.hud.Push(new CreativeScreen());return;}
             var adapter=gm.gameObject.AddComponent<HorrorAutomation>();adapter.gm=gm;adapter.output=words.Length>1?words[1]:"Tools/_out/horror-runtime.json";
             adapter.result=new Results{task=task,save=gm.session.save.dir,startHealth=gm.player.health};
-            if(task=="suite")adapter.StartCoroutine(adapter.Suite());else if(task=="route")adapter.StartCoroutine(adapter.Route());else if(task=="checkpoint")adapter.StartCoroutine(adapter.Checkpoint());else throw new ArgumentException("Unknown horror test "+task);
+            if(task=="suite")adapter.StartCoroutine(adapter.Suite());else if(task=="route")adapter.StartCoroutine(adapter.Route());else if(task=="checkpoint")adapter.StartCoroutine(adapter.Checkpoint());else if(task=="eggs")adapter.StartCoroutine(adapter.SurvivalEggs());else throw new ArgumentException("Unknown horror test "+task);
         }
         void Check(bool ok,string message){result.checks.Add((ok?"PASS ":"FAIL ")+message);Debug.Log("[HorrorTest] "+result.checks[result.checks.Count-1]);if(!ok)failed=true;}
         void Finish(){result.done=true;result.success=!failed;result.endHealth=P.health;Directory.CreateDirectory(Path.GetDirectoryName(output));File.WriteAllText(output,JsonUtility.ToJson(result,true));Debug.Log("[HorrorTest] FINISHED "+result.task+" success="+result.success);Destroy(this);}
@@ -119,6 +119,34 @@ namespace MCR.Horror
             W.SetBlock(baseCell.Offset(0,3,0),Blocks.Air);yield return Ticks(20);Check(!H.refugeValid && H.protectionWarning>0,"broken roof grants warning before danger");
             Check(H.state.wards.Count==0,"Creative ward preview isolated from saved defenses");
             H.Dismiss(true);H.SetEnabled(false);Check(H.Active().Count==0,"disable removes actors");H.SetEnabled(true);gm.SaveAll();Finish();
+        }
+        IEnumerator SurvivalEggs()
+        {
+            P.SetGameMode(GameMode.Survival);H.directorPaused=true;H.showcase=true;
+            yield return Ticks(3);
+            Vector3 center=new Vector3(Mathf.Floor(P.position.x)+.5f,Mathf.Floor(P.position.y)+12,Mathf.Floor(P.position.z)+.5f);
+            var baseCell=Int3.Floor(center);
+            for(int x=-24;x<=24;x++)for(int z=-24;z<=24;z++)
+            {
+                W.SetBlock(baseCell.Offset(x,-1,z),Blocks.Get("stone"));
+                for(int y=0;y<9;y++)W.SetBlock(baseCell.Offset(x,y,z),Blocks.Air);
+            }
+            P.Teleport(center+new Vector3(0,0,-8));P.abilities.flying=false;
+            H.state.recoveryUntil=H.state.clock;H.state.tension=0;H.refugeValid=false;H.protectionWarning=0;
+            foreach(string kind in HorrorRegistry.Creatures)
+            {
+                H.Dismiss(false);H.directorPaused=true;H.showcase=true;
+                var egg=Items.Get("horror:"+kind+"_spawn_egg") as HorrorEgg;
+                var stack=new ItemStack(egg,2);
+                var ctx=new UseOnContext{world=W,player=P,stack=stack,pos=baseCell.Offset(0,-1,0),face=Dir.Up};
+                Check(egg.UseOn(ref ctx)==UseResult.Success,"Survival egg places "+kind);
+                yield return Ticks(3);
+                var mob=H.Active().Find(m=>m.kind==kind);
+                Check(mob!=null && !mob.preview && mob.ShouldSave && !mob.campaignBoss,"Survival "+kind+" is a real saved actor");
+                Check(stack.count==1,"Survival "+kind+" egg is consumed once");
+                if(kind=="unseam")Check(mob.final,"egg Unseam uses its combat phases without becoming the campaign boss");
+            }
+            H.Dismiss(false);H.showcase=false;H.directorPaused=false;Finish();
         }
         IEnumerator Checkpoint()
         {
